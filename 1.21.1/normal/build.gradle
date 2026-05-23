@@ -1,0 +1,122 @@
+plugins {
+    id 'java-library'
+    id 'eclipse'
+    id 'idea'
+    id 'maven-publish'
+    id 'net.neoforged.moddev' version '2.0.141'
+}
+
+version = project.mod_version
+group = project.mod_group
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
+}
+
+neoForge {
+    version = project.neo_version
+
+    runs {
+        configureEach {
+            systemProperty 'forge.logging.markers', 'REGISTRIES'
+            logLevel = org.slf4j.event.Level.DEBUG
+        }
+
+        client {
+            client()
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
+        server {
+            server()
+            programArgument '--nogui'
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+    }
+
+    mods {
+        "${project.mod_id}" {
+            sourceSet sourceSets.main
+        }
+    }
+}
+
+sourceSets.main.resources { srcDir 'src/generated/resources' }
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+tasks.register('inspectPackClasses') {
+    doLast {
+        def compileClasspath = sourceSets.main.compileClasspath
+        File classJar = null
+        for (File file : compileClasspath) {
+            if (file.name.endsWith(".jar")) {
+                try {
+                    def jf = new java.util.jar.JarFile(file)
+                    if (jf.getJarEntry("net/minecraft/server/packs/repository/Pack.class") != null) {
+                        classJar = file
+                        break
+                    }
+                } catch (Exception e) {}
+            }
+        }
+        if (classJar == null) { println "Pack.class Jar not found"; return }
+        def jf = new java.util.jar.JarFile(classJar)
+        // Check Pack.isRequired
+        def packEntry = jf.getJarEntry("net/minecraft/server/packs/repository/Pack.class")
+        def packTmp = File.createTempFile("Pack", ".class")
+        packTmp.deleteOnExit()
+        jf.getInputStream(packEntry).withCloseable { is -> packTmp.withOutputStream { os -> os << is } }
+        def proc1 = new ProcessBuilder('javap', '-c', '-p', packTmp.absolutePath).start()
+        def out1 = proc1.inputStream.text
+        boolean inMethod = false
+        println "=== Pack.isRequired ==="
+        out1.split('\n').each { line ->
+            if (line.contains("isRequired")) inMethod = true
+            else if (inMethod && (line.startsWith("  public ") || line.startsWith("  private "))) inMethod = false
+            if (inMethod) println line
+        }
+        // Check ResourcePackLoader.expandAndRemoveRootChildren
+        File nfJar = null
+        for (File file : compileClasspath) {
+            if (file.name.endsWith(".jar")) {
+                try {
+                    def jf2 = new java.util.jar.JarFile(file)
+                    if (jf2.getJarEntry("net/neoforged/neoforge/resource/ResourcePackLoader.class") != null) {
+                        nfJar = file
+                        break
+                    }
+                } catch (Exception e) {}
+            }
+        }
+        if (nfJar != null) {
+            def jf2 = new java.util.jar.JarFile(nfJar)
+            def entry2 = jf2.getJarEntry("net/neoforged/neoforge/resource/ResourcePackLoader.class")
+            def tmp2 = File.createTempFile("ResourcePackLoader", ".class")
+            tmp2.deleteOnExit()
+            jf2.getInputStream(entry2).withCloseable { is -> tmp2.withOutputStream { os -> os << is } }
+            def proc2 = new ProcessBuilder('javap', '-c', '-p', tmp2.absolutePath).start()
+            def out2 = proc2.inputStream.text
+            println "=== ResourcePackLoader.expandAndRemoveRootChildren ==="
+            boolean inM = false
+            out2.split('\n').each { line ->
+                if (line.contains("expandAndRemoveRootChildren")) inM = true
+                else if (inM && (line.startsWith("  public ") || line.startsWith("  private "))) inM = false
+                if (inM) println line
+            }
+        }
+    }
+}
+
+
+
+
+
+

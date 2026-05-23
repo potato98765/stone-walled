@@ -1,0 +1,16 @@
+modLoader = "javafml"
+loaderVersion = "[2,)"
+license = "MIT"
+
+[[mods]]
+modId = "stonewalled"
+version = "${file.jarVersion}"
+displayName = "StoneWalled"
+authors = "MrPotato"
+description = """
+A client-side utility mod that acts as a dynamic anti-Xray asset enforcement layer.
+It checks a remote API asynchronously, and dynamically injects a hidden, required resource pack.
+"""
+
+[[mixins]]
+config = "stonewalled.mixins.json"
