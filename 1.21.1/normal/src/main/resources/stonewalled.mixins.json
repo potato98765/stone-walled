@@ -4,10 +4,7 @@
   "package": "com.mrpotato.stonewalled.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [],
-  "client": [
-    "PackSelectionModelMixin",
-    "PackRepositoryMixin"
-  ],
+  "client": [],
   "injectors": {
     "defaultRequire": 1
   }
